@@ -1,11 +1,11 @@
-import type { ApiRequest, ApiResponse } from './_http'
+import type { ApiRequest, ApiResponse } from './_http.js'
 import {
   createTenant,
   isRedisConfigured,
   isTenantStoreError,
   listTenants,
   normalizeTenant,
-} from './_tenant-store'
+} from './_tenant-store.js'
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {

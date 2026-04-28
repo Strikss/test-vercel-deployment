@@ -1,5 +1,5 @@
-import type { ApiRequest, ApiResponse } from './_http'
-import { getTenant, isTenantStoreError, isValidSlug } from './_tenant-store'
+import type { ApiRequest, ApiResponse } from './_http.js'
+import { getTenant, isTenantStoreError, isValidSlug } from './_tenant-store.js'
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
