@@ -17,7 +17,15 @@ const CONFIGURED_PRIMARY_HOST = (
 
 export function getPrimaryHost() {
   if (CONFIGURED_PRIMARY_HOST) return CONFIGURED_PRIMARY_HOST
-  if (typeof window !== 'undefined') return window.location.hostname.toLowerCase()
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname.toLowerCase()
+    if (hostname === 'localhost' || hostname.endsWith('.localhost')) {
+      return 'localhost'
+    }
+
+    return hostname
+  }
+
   return 'localhost'
 }
 
@@ -88,7 +96,11 @@ export async function createTenant(tenant: Tenant): Promise<Tenant> {
   return created
 }
 
-export function tenantUrl(slug: string, primaryHost: string = getPrimaryHost()) {
+export function tenantUrl(
+  slug: string,
+  primaryHost: string = getPrimaryHost(),
+  path = ''
+) {
   const protocol =
     typeof window !== 'undefined' ? window.location.protocol : 'https:'
   const port =
@@ -97,7 +109,7 @@ export function tenantUrl(slug: string, primaryHost: string = getPrimaryHost()) 
     primaryHost === window.location.hostname
       ? `:${window.location.port}`
       : ''
-  return `${protocol}//${slug}.${primaryHost}${port}`
+  return `${protocol}//${slug}.${primaryHost}${port}${path}`
 }
 
 export function isValidSlug(slug: string) {

@@ -136,7 +136,7 @@ export function HomePage() {
                 return (
                   <a
                     key={t.slug}
-                    href={tenantUrl(t.slug)}
+                    href={tenantUrl(t.slug, primaryHost, '/preview')}
                     target="_blank"
                     rel="noreferrer"
                     className={cn(
