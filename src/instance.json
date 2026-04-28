@@ -1,4 +1,16 @@
 {
-  "theme": "default",
-  "name": ""
+  "tenants": {
+    "acme": {
+      "theme": "violet",
+      "name": "Acme Co"
+    },
+    "bobs": {
+      "theme": "amber",
+      "name": "Bob's Burgers"
+    },
+    "atlas": {
+      "theme": "emerald",
+      "name": "Atlas Health"
+    }
+  }
 }
