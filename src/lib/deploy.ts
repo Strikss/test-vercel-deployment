@@ -1,7 +1,7 @@
 import type { ThemeId } from './themes'
 
 export const TEMPLATE_REPO_URL =
-  'https://github.com/your-org/test-vercel-template'
+  'https://github.com/Strikss/test-vercel-deployment'
 
 export const DEMO_TITLE = 'White-label shadcn starter'
 export const DEMO_DESCRIPTION =
@@ -88,7 +88,7 @@ export function buildApiSimulationSteps({
         framework: 'vite',
         gitRepository: {
           type: 'github',
-          repo: 'your-org/test-vercel-template',
+          repo: 'Strikss/test-vercel-deployment',
         },
         environmentVariables: [
           {

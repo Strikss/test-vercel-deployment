@@ -1,3 +1,4 @@
+import instanceJson from '@/instance.json'
 import { isThemeId, type ThemeId } from './themes'
 
 export type InstanceConfig = {
@@ -8,8 +9,18 @@ export type InstanceConfig = {
 export function readInstanceConfig(): InstanceConfig | null {
   const envTheme = import.meta.env.VITE_INSTANCE_THEME as string | undefined
   const envName = import.meta.env.VITE_INSTANCE_NAME as string | undefined
-  if (envTheme && envName && isThemeId(envTheme)) {
-    return { theme: envTheme, name: envName }
-  }
-  return null
+
+  const rawTheme = envTheme ?? instanceJson.theme
+  const rawName = envName ?? instanceJson.name
+
+  if (!rawName || !isThemeId(rawTheme)) return null
+  return { theme: rawTheme, name: rawName }
+}
+
+export function readInstanceConfigSource(): 'env' | 'instance.json' | 'none' {
+  const envTheme = import.meta.env.VITE_INSTANCE_THEME as string | undefined
+  const envName = import.meta.env.VITE_INSTANCE_NAME as string | undefined
+  if (envTheme && envName) return 'env'
+  if (instanceJson.name && isThemeId(instanceJson.theme)) return 'instance.json'
+  return 'none'
 }
