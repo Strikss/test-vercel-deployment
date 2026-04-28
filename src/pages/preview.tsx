@@ -3,12 +3,20 @@ import { useSearchParams } from 'react-router-dom'
 import { InstancePreview } from '@/components/instance-preview'
 import { Badge } from '@/components/ui/badge'
 import { isThemeId, type ThemeId } from '@/lib/themes'
-import { getCurrentTenant, type Tenant } from '@/lib/tenant'
+import {
+  getCurrentTenant,
+  getTenantSlugFromHost,
+  type Tenant,
+} from '@/lib/tenant'
 
 export function PreviewPage() {
   const [params] = useSearchParams()
   const [tenant, setTenant] = useState<Tenant | null>(null)
   const [loading, setLoading] = useState(true)
+  const tenantSlug =
+    typeof window !== 'undefined'
+      ? getTenantSlugFromHost(window.location.hostname)
+      : null
 
   useEffect(() => {
     let cancelled = false
@@ -30,6 +38,20 @@ export function PreviewPage() {
 
   const themeParam = params.get('theme')
   const nameParam = params.get('name')
+  const isTenantPreview = tenantSlug !== null
+
+  if (loading && isTenantPreview) {
+    return (
+      <div className="mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-2xl flex-col items-center justify-center px-6 py-12">
+        <Badge variant="outline" className="mb-3 rounded-full">
+          Loading tenant config
+        </Badge>
+        <p className="max-w-md text-center text-sm text-muted-foreground">
+          Preparing <code>{tenantSlug}.{getBaseHostLabel()}</code>.
+        </p>
+      </div>
+    )
+  }
 
   const theme: ThemeId =
     tenant?.theme ?? (isThemeId(themeParam) ? themeParam : 'violet')
@@ -55,4 +77,10 @@ export function PreviewPage() {
       </div>
     </div>
   )
+}
+
+function getBaseHostLabel() {
+  if (typeof window === 'undefined') return 'localhost'
+  const hostname = window.location.hostname
+  return hostname.endsWith('.localhost') ? 'localhost' : hostname
 }
