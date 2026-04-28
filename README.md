@@ -1,73 +1,59 @@
-# React + TypeScript + Vite
+# Multi-Tenant Vercel Demo
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+One Vite deployment serves every tenant subdomain. Tenant config is loaded at
+runtime through Vercel serverless functions backed by Upstash Redis.
 
-Currently, two official plugins are available:
+## How It Works
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `*.yourdomain.com` points to the same Vercel project.
+- The frontend extracts the subdomain from `window.location.hostname`.
+- The frontend calls `/api/tenant?slug=<slug>`.
+- The serverless function reads `tenant:<slug>` from Redis.
+- Creating a tenant posts to `/api/tenants` and writes Redis config.
 
-## React Compiler
+No GitHub commit or redeploy is required when a tenant is created.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Required Environment
 
-## Expanding the ESLint configuration
+Connect Upstash Redis from the Vercel Marketplace, then make sure these env vars
+exist in the Vercel project:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+UPSTASH_REDIS_REST_URL=...
+UPSTASH_REDIS_REST_TOKEN=...
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The API also supports the older Vercel KV names:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+KV_REST_API_URL=...
+KV_REST_API_TOKEN=...
 ```
+
+Set the primary wildcard domain used by the frontend:
+
+```bash
+VITE_PRIMARY_HOST=yourdomain.com
+```
+
+For local testing with subdomains, use:
+
+```bash
+VITE_PRIMARY_HOST=localhost
+```
+
+Then visit `acme.localhost:5173`.
+
+## Development
+
+```bash
+npm install
+npm run dev
+```
+
+Use `vercel dev` instead when you want to test the `/api/*` serverless routes
+locally.
+
+Without Redis env vars, the API returns seed tenants for reads and rejects new
+tenant creation. This keeps the demo viewable before storage is connected while
+making runtime writes explicit.

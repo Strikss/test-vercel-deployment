@@ -1,10 +1,14 @@
-import instanceJson from '@/instance.json'
 import { isThemeId, type ThemeId } from './themes'
 
 export type Tenant = {
   slug: string
   theme: ThemeId
   name: string
+}
+
+export type TenantListResponse = {
+  tenants: Tenant[]
+  storage: 'redis' | 'seed'
 }
 
 const PRIMARY_HOST = (
@@ -26,35 +30,59 @@ export function getTenantSlugFromHost(host: string): string | null {
   return slug
 }
 
-export function getTenantBySlug(slug: string): Tenant | null {
-  const tenants = instanceJson.tenants as Record<
-    string,
-    { theme: string; name: string }
-  >
-  const config = tenants[slug]
-  if (!config || !isThemeId(config.theme)) return null
-  return { slug, theme: config.theme, name: config.name }
+export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
+  const response = await fetch(`/api/tenant?slug=${encodeURIComponent(slug)}`)
+  if (response.status === 404) return null
+  if (!response.ok) throw new Error('Failed to load tenant')
+
+  const payload = (await response.json()) as { tenant?: unknown }
+  return normalizeTenant(payload.tenant)
 }
 
-export function getCurrentTenant(): Tenant | null {
+export async function getCurrentTenant(): Promise<Tenant | null> {
   if (typeof window === 'undefined') return null
   const slug = getTenantSlugFromHost(window.location.hostname)
   if (!slug) return null
   return getTenantBySlug(slug)
 }
 
-export function listTenants(): Tenant[] {
-  const tenants = instanceJson.tenants as Record<
-    string,
-    { theme: string; name: string }
-  >
-  return Object.entries(tenants)
-    .filter(([, cfg]) => isThemeId(cfg.theme))
-    .map(([slug, cfg]) => ({
-      slug,
-      theme: cfg.theme as ThemeId,
-      name: cfg.name,
-    }))
+export async function listTenants(): Promise<TenantListResponse> {
+  const response = await fetch('/api/tenants')
+  if (!response.ok) throw new Error('Failed to load tenants')
+
+  const payload = (await response.json()) as {
+    tenants?: unknown
+    storage?: unknown
+  }
+  const tenants = Array.isArray(payload.tenants)
+    ? payload.tenants.map(normalizeTenant).filter((t): t is Tenant => t !== null)
+    : []
+
+  return {
+    tenants,
+    storage: payload.storage === 'redis' ? 'redis' : 'seed',
+  }
+}
+
+export async function createTenant(tenant: Tenant): Promise<Tenant> {
+  const response = await fetch('/api/tenants', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(tenant),
+  })
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    tenant?: unknown
+    error?: string
+  }
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? 'Failed to create tenant')
+  }
+
+  const created = normalizeTenant(payload.tenant)
+  if (!created) throw new Error('API returned an invalid tenant')
+  return created
 }
 
 export function tenantUrl(slug: string, primaryHost: string = PRIMARY_HOST) {
@@ -78,4 +106,24 @@ export function sanitizeSlug(input: string) {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 32)
+}
+
+function normalizeTenant(input: unknown): Tenant | null {
+  if (!input || typeof input !== 'object') return null
+
+  const candidate = input as Record<string, unknown>
+  if (
+    typeof candidate.slug !== 'string' ||
+    typeof candidate.name !== 'string' ||
+    typeof candidate.theme !== 'string' ||
+    !isThemeId(candidate.theme)
+  ) {
+    return null
+  }
+
+  return {
+    slug: candidate.slug,
+    theme: candidate.theme,
+    name: candidate.name,
+  }
 }

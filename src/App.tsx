@@ -2,22 +2,19 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Nav } from '@/components/nav'
 import { HomePage } from '@/pages/home'
 import { PreviewPage } from '@/pages/preview'
-import { readInstanceConfig } from '@/lib/env'
+import { isTenantHost } from '@/lib/env'
 
 function App() {
-  const instance = readInstanceConfig()
-  const isInstanceMode = instance !== null
+  const tenantHost = isTenantHost()
 
   return (
     <BrowserRouter>
-      {!isInstanceMode && <Nav />}
+      {!tenantHost && <Nav />}
       <main>
         <Routes>
           <Route
             path="/"
-            element={
-              isInstanceMode ? <Navigate to="/preview" replace /> : <HomePage />
-            }
+            element={tenantHost ? <Navigate to="/preview" replace /> : <HomePage />}
           />
           <Route path="/preview" element={<PreviewPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

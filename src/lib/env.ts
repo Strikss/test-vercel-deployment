@@ -1,7 +1,6 @@
-import { getCurrentTenant, type Tenant } from './tenant'
+import { getTenantSlugFromHost } from './tenant'
 
-export type InstanceConfig = Tenant
-
-export function readInstanceConfig(): InstanceConfig | null {
-  return getCurrentTenant()
+export function isTenantHost() {
+  if (typeof window === 'undefined') return false
+  return getTenantSlugFromHost(window.location.hostname) !== null
 }

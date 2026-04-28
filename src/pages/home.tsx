@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { ArrowUpRight, ExternalLink, Plus } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowUpRight, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -14,37 +14,78 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ThemePicker } from '@/components/theme-picker'
 import { InstancePreview } from '@/components/instance-preview'
-import { CodeBlock } from '@/components/code-block'
 import {
+  createTenant,
   getPrimaryHost,
   isValidSlug,
   listTenants,
   sanitizeSlug,
+  type Tenant,
   tenantUrl,
 } from '@/lib/tenant'
 import { THEMES, type ThemeId } from '@/lib/themes'
 import { cn } from '@/lib/utils'
 
-const REPO_URL = 'https://github.com/Strikss/test-vercel-deployment'
-const EDIT_URL = `${REPO_URL}/edit/main/src/instance.json`
-
 export function HomePage() {
   const [slug, setSlug] = useState('newshop')
   const [theme, setTheme] = useState<ThemeId>('violet')
   const [name, setName] = useState('New Shop')
-  const tenants = useMemo(listTenants, [])
+  const [tenants, setTenants] = useState<Tenant[]>([])
+  const [storage, setStorage] = useState<'redis' | 'seed'>('seed')
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
   const primaryHost = getPrimaryHost()
 
   const validSlug = isValidSlug(slug)
   const slugTaken = tenants.some((t) => t.slug === slug)
   const newTenantUrl = validSlug ? tenantUrl(slug) : ''
 
-  const jsonSnippet = useMemo(() => {
-    const merged: Record<string, { theme: string; name: string }> = {}
-    for (const t of tenants) merged[t.slug] = { theme: t.theme, name: t.name }
-    if (validSlug && !slugTaken) merged[slug] = { theme, name }
-    return JSON.stringify({ tenants: merged }, null, 2)
-  }, [tenants, slug, theme, name, validSlug, slugTaken])
+  const canSubmit = validSlug && !slugTaken && name.trim() !== '' && !submitting
+
+  useEffect(() => {
+    void refreshTenants()
+  }, [])
+
+  async function refreshTenants() {
+    setLoading(true)
+    setMessage(null)
+    try {
+      const result = await listTenants()
+      setTenants(result.tenants)
+      setStorage(result.storage)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to load tenants')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleCreateTenant() {
+    if (!canSubmit) return
+
+    setSubmitting(true)
+    setMessage(null)
+    try {
+      const tenant = await createTenant({
+        slug,
+        theme,
+        name: name.trim(),
+      })
+
+      setTenants((current) =>
+        [...current, tenant].sort((a, b) => a.slug.localeCompare(b.slug))
+      )
+      setStorage('redis')
+      setMessage(`${tenant.name} is live at ${tenantUrl(tenant.slug)}.`)
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Failed to create tenant'
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12">
@@ -56,10 +97,10 @@ export function HomePage() {
           One deployment, every tenant gets a branded subdomain
         </h1>
         <p className="text-muted-foreground">
-          Pick a slug and a theme. After committing it to{' '}
-          <code>src/instance.json</code> and pushing, your tenant is live at{' '}
-          <code>&lt;slug&gt;.{primaryHost}</code>. Same Vercel deployment serves
-          every subdomain — no per-tenant build, no backend.
+          Pick a slug and a theme. The app writes tenant config to Redis through
+          a Vercel API route, then the same deployment serves{' '}
+          <code>&lt;slug&gt;.{primaryHost}</code>. No per-tenant build or GitHub
+          commit is needed.
         </p>
       </div>
 
@@ -73,11 +114,18 @@ export function HomePage() {
                 same deployment.
               </CardDescription>
             </div>
-            <Badge variant="secondary">{tenants.length}</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={storage === 'redis' ? 'default' : 'secondary'}>
+                {storage === 'redis' ? 'Redis' : 'Seed data'}
+              </Badge>
+              <Badge variant="secondary">{tenants.length}</Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          {tenants.length === 0 ? (
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading tenants...</p>
+          ) : tenants.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No tenants registered yet. Add one below.
             </p>
@@ -132,8 +180,8 @@ export function HomePage() {
             <div className="space-y-1">
               <CardTitle className="text-lg">Register a new tenant</CardTitle>
               <CardDescription>
-                Adds an entry to <code>src/instance.json</code>. Push to commit
-                and Vercel auto-deploys.
+                Persists tenant config in Redis through <code>/api/tenants</code>.
+                The subdomain is available immediately after creation.
               </CardDescription>
             </div>
           </div>
@@ -203,24 +251,28 @@ export function HomePage() {
           <Separator />
 
           <div className="space-y-3">
-            <Label>Updated <code>src/instance.json</code></Label>
-            <CodeBlock code={jsonSnippet} language="json" />
             <div className="flex flex-wrap items-center gap-3">
-              <Button asChild disabled={!validSlug || slugTaken}>
-                {validSlug && !slugTaken ? (
-                  <a href={EDIT_URL} target="_blank" rel="noreferrer">
-                    Open instance.json on GitHub
-                    <ExternalLink className="size-3.5" aria-hidden />
-                  </a>
-                ) : (
-                  <span>Open instance.json on GitHub</span>
-                )}
+              <Button
+                type="button"
+                disabled={!canSubmit}
+                onClick={() => void handleCreateTenant()}
+              >
+                {submitting ? 'Creating...' : 'Create tenant'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void refreshTenants()}
+              >
+                <RefreshCw className="size-3.5" aria-hidden />
+                Refresh
               </Button>
               <span className="text-xs text-muted-foreground">
-                Paste the JSON above, commit, push → Vercel deploys → your
-                subdomain is live.
+                Requires Upstash Redis env vars in Vercel. Without Redis, the
+                app shows seed tenants but cannot persist new ones.
               </span>
             </div>
+            {message && <p className="text-sm text-muted-foreground">{message}</p>}
           </div>
         </CardContent>
       </Card>
@@ -243,13 +295,13 @@ export function HomePage() {
           <p>
             <strong className="text-foreground">Client-side resolve</strong> —
             the SPA reads <code>window.location.hostname</code>, extracts the
-            subdomain, looks up the tenant in <code>instance.json</code>,
-            applies the theme.
+            subdomain, asks <code>/api/tenant</code> for Redis-backed config,
+            and applies the theme.
           </p>
           <p>
-            <strong className="text-foreground">Limit</strong> — adding a new
-            tenant requires a commit + redeploy. For instant registration
-            without commits, swap the JSON for Vercel Edge Config or KV.
+            <strong className="text-foreground">Runtime config</strong> — adding
+            a tenant writes to Redis, so no GitHub edit, commit, or redeploy is
+            required after the original app deployment.
           </p>
         </CardContent>
       </Card>

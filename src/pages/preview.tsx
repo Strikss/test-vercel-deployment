@@ -1,12 +1,32 @@
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { InstancePreview } from '@/components/instance-preview'
 import { Badge } from '@/components/ui/badge'
 import { isThemeId, type ThemeId } from '@/lib/themes'
-import { getCurrentTenant } from '@/lib/tenant'
+import { getCurrentTenant, type Tenant } from '@/lib/tenant'
 
 export function PreviewPage() {
   const [params] = useSearchParams()
-  const tenant = getCurrentTenant()
+  const [tenant, setTenant] = useState<Tenant | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadTenant() {
+      try {
+        const currentTenant = await getCurrentTenant()
+        if (!cancelled) setTenant(currentTenant)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    void loadTenant()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const themeParam = params.get('theme')
   const nameParam = params.get('name')
@@ -23,7 +43,7 @@ export function PreviewPage() {
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-2xl flex-col items-center justify-center px-6 py-12">
       <Badge variant="outline" className="mb-3 rounded-full">
-        Source: {source}
+        Source: {loading ? 'loading tenant config' : source}
       </Badge>
       <p className="mb-6 max-w-md text-center text-sm text-muted-foreground">
         This is the deployed instance — what every visitor sees on{' '}
