@@ -33,6 +33,10 @@ const TENANT_INDEX_KEY = 'tenants:index'
 
 let redis: Redis | null | undefined
 
+export function isTenantStoreError(error: unknown): error is Error {
+  return error instanceof Error
+}
+
 function getRedis() {
   if (redis !== undefined) return redis
 
