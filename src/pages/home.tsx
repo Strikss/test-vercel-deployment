@@ -280,29 +280,71 @@ export function HomePage() {
       <Card className="bg-muted/40">
         <CardHeader>
           <CardTitle className="text-base">How this works</CardTitle>
+          <CardDescription>
+            The database stores tenant config. Vercel makes every tenant
+            hostname reach this same app safely over HTTPS.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>
-            <strong className="text-foreground">One deployment</strong> — this
-            Vite app is deployed once. The same static bundle serves every
-            subdomain.
-          </p>
-          <p>
-            <strong className="text-foreground">Wildcard domain</strong> —{' '}
-            <code>*.{primaryHost}</code> is configured on the Vercel project,
-            so every <code>&lt;slug&gt;.{primaryHost}</code> hits this build.
-          </p>
-          <p>
-            <strong className="text-foreground">Client-side resolve</strong> —
-            the SPA reads <code>window.location.hostname</code>, extracts the
-            subdomain, asks <code>/api/tenant</code> for Redis-backed config,
-            and applies the theme.
-          </p>
-          <p>
-            <strong className="text-foreground">Runtime config</strong> — adding
-            a tenant writes to Redis, so no GitHub edit, commit, or redeploy is
-            required after the original app deployment.
-          </p>
+        <CardContent className="space-y-5 text-sm text-muted-foreground">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-lg border bg-background p-4">
+              <h3 className="mb-2 font-medium text-foreground">
+                Request flow
+              </h3>
+              <p>
+                A visitor opens <code>acme.{primaryHost}</code>. Vercel routes
+                that hostname to this one deployment. The app extracts{' '}
+                <code>acme</code>, calls <code>/api/tenant</code>, reads{' '}
+                <code>tenant:acme</code> from Redis, then renders the Acme theme.
+              </p>
+            </div>
+
+            <div className="rounded-lg border bg-background p-4">
+              <h3 className="mb-2 font-medium text-foreground">
+                Creating a tenant
+              </h3>
+              <p>
+                The form posts to <code>/api/tenants</code>. That API writes the
+                slug, name, and theme to Redis. Nothing is committed to GitHub
+                and no new Vercel deployment is created for that tenant.
+              </p>
+            </div>
+
+            <div className="rounded-lg border bg-background p-4">
+              <h3 className="mb-2 font-medium text-foreground">
+                Why Vercel is needed
+              </h3>
+              <p>
+                Redis only answers “which config belongs to this slug?” Vercel
+                handles the infrastructure before our app runs: wildcard domain
+                routing, HTTPS certificates, global edge routing, deployments,
+                and serverless API functions.
+              </p>
+            </div>
+
+            <div className="rounded-lg border bg-background p-4">
+              <h3 className="mb-2 font-medium text-foreground">
+                What we still own
+              </h3>
+              <p>
+                We own tenant records, validation, theme rendering, and data
+                isolation. In production, Redis could be replaced or backed by
+                Postgres; the important part is resolving every request by
+                hostname before loading tenant data.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-background p-4">
+            <h3 className="mb-2 font-medium text-foreground">
+              Main takeaway
+            </h3>
+            <p>
+              Deployment is app code. Tenant config is data. We deploy the app
+              once to Vercel, configure <code>*.{primaryHost}</code>, and then
+              add tenants instantly by writing config to Redis.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
